@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from math.vector import Vector2
+from cad_math.vector import Vector2
 
 
 class SnapEngine:

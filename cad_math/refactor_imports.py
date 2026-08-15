@@ -1,14 +1,14 @@
-@'
+﻿@'
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
 
 REPLACEMENTS = {
-    "from math.vector import": "from cad_math.vector import",
-    "from math.matrix import": "from cad_math.matrix import",
-    "from math.transform import": "from cad_math.transform import",
-    "from math.geometry_math import": "from cad_math.geometry_math import",
-    "from math.tolerance import": "from cad_math.tolerance import",
+    "from cad_math.vector import": "from cad_math.vector import",
+    "from cad_math.matrix import": "from cad_math.matrix import",
+    "from cad_math.transform import": "from cad_math.transform import",
+    "from cad_math.geometry_math import": "from cad_math.geometry_math import",
+    "from cad_math.tolerance import": "from cad_math.tolerance import",
 
     "import math.vector": "import cad_math.vector",
     "import math.matrix": "import cad_math.matrix",

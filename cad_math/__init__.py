@@ -1,4 +1,4 @@
-from .vector import Vector2
+﻿from .vector import Vector2
 from .matrix import Matrix3
 from .transform import Transform
 from .tolerance import Tolerance

@@ -1,59 +1,91 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 
-from math.vector import Vector2
-from math.tolerance import Tolerance
+from cad_math.vector import Vector2
+from cad_math.tolerance import Tolerance
 
 
-def distance(p1: Vector2, p2: Vector2) -> float:
-    return (p2 - p1).length
+def distance(a: Vector2, b: Vector2) -> float:
+    """Return the Euclidean distance between two 2D vectors."""
+    dx = b.x - a.x
+    dy = b.y - a.y
+    return math.hypot(dx, dy)
 
 
-def midpoint(p1: Vector2, p2: Vector2) -> Vector2:
+def distance_squared(a: Vector2, b: Vector2) -> float:
+    """Return squared Euclidean distance."""
+    dx = b.x - a.x
+    dy = b.y - a.y
+    return dx * dx + dy * dy
+
+
+def midpoint(a: Vector2, b: Vector2) -> Vector2:
+    """Return the midpoint between two vectors."""
     return Vector2(
-        (p1.x + p2.x) * 0.5,
-        (p1.y + p2.y) * 0.5
+        (a.x + b.x) / 2.0,
+        (a.y + b.y) / 2.0,
     )
 
 
-def lerp(p1: Vector2, p2: Vector2, t: float) -> Vector2:
-    return p1 + (p2 - p1) * t
+def is_close(
+    a: float,
+    b: float,
+    tolerance: float | None = None,
+) -> bool:
+    """Compare two values using the CAD tolerance."""
+    if tolerance is None:
+        tolerance = Tolerance.EPSILON
+
+    return abs(a - b) <= tolerance
 
 
-def angle(p1: Vector2, p2: Vector2) -> float:
-    return math.atan2(
-        p2.y - p1.y,
-        p2.x - p1.x
-    )
+def clamp(
+    value: float,
+    minimum: float,
+    maximum: float,
+) -> float:
+    """Clamp a value to a specified range."""
+    return max(minimum, min(value, maximum))
 
 
-def polar(origin: Vector2,
-          radius: float,
-          angle: float) -> Vector2:
+def dot(a: Vector2, b: Vector2) -> float:
+    """Return the 2D dot product."""
+    return a.x * b.x + a.y * b.y
+
+
+def cross(a: Vector2, b: Vector2) -> float:
+    """Return the scalar 2D cross product."""
+    return a.x * b.y - a.y * b.x
+
+
+def length(v: Vector2) -> float:
+    """Return the vector length."""
+    return math.hypot(v.x, v.y)
+
+
+def normalize(v: Vector2) -> Vector2:
+    """Return a normalized copy of the vector."""
+    magnitude = length(v)
+
+    if magnitude <= Tolerance.EPSILON:
+        return Vector2()
 
     return Vector2(
-        origin.x + radius * math.cos(angle),
-        origin.y + radius * math.sin(angle)
+        v.x / magnitude,
+        v.y / magnitude,
     )
 
 
-def collinear(a: Vector2,
-              b: Vector2,
-              c: Vector2) -> bool:
+class GeometryMath:
+    """Common geometric helper functions."""
 
-    ab = b - a
-    ac = c - a
-
-    return Tolerance.zero(ab.cross(ac))
-
-
-def between(a: Vector2,
-            b: Vector2,
-            c: Vector2) -> bool:
-
-    return (
-        min(a.x, b.x) - Tolerance.EPSILON <= c.x <= max(a.x, b.x) + Tolerance.EPSILON
-        and
-        min(a.y, b.y) - Tolerance.EPSILON <= c.y <= max(a.y, b.y) + Tolerance.EPSILON
-    )
+    distance = staticmethod(distance)
+    distance_squared = staticmethod(distance_squared)
+    midpoint = staticmethod(midpoint)
+    is_close = staticmethod(is_close)
+    clamp = staticmethod(clamp)
+    dot = staticmethod(dot)
+    cross = staticmethod(cross)
+    length = staticmethod(length)
+    normalize = staticmethod(normalize)

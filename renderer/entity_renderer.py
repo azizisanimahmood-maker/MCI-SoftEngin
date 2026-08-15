@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from geometry.point import Point
 from geometry.line import Line

@@ -1,17 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 
 
 class Tolerance:
-
-    # Geometric tolerance
     EPSILON = 1e-9
-
-    # Display tolerance
     DISPLAY = 1e-6
-
-    # Angular tolerance (radian)
     ANGLE = 1e-8
 
     @staticmethod

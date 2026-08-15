@@ -1,48 +1,101 @@
-from __future__ import annotations
-
-from PySide6.QtWidgets import QStatusBar, QLabel
+﻿from PySide6.QtWidgets import QStatusBar, QLabel
+from PySide6.QtCore import Qt
 
 
 class StatusBar(QStatusBar):
+    """Status bar for MCI SoftEngine."""
 
     def __init__(self, parent=None):
-
         super().__init__(parent)
 
-        self.coord_label = QLabel("X:0  Y:0")
+        # ارتفاع نوار وضعیت
+        self.setFixedHeight(32)
 
-        self.snap_label = QLabel("SNAP")
+        # =================================================
+        # مختصات
+        # =================================================
 
-        self.layer_label = QLabel("Layer:0")
+        self.coordinates_label = QLabel(
+            "X: 0.00    Y: 0.00"
+        )
 
-        self.message_label = QLabel("Ready")
+        self.coordinates_label.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+        )
 
-        self.addPermanentWidget(self.coord_label)
+        self.coordinates_label.setMinimumWidth(260)
 
-        self.addPermanentWidget(self.snap_label)
+        self.coordinates_label.setStyleSheet(
+            """
+            QLabel {
+                color: white;
+                background-color: #202020;
+                border: 1px solid #555555;
+                padding: 4px 12px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            """
+        )
 
-        self.addPermanentWidget(self.layer_label)
+        # قرار دادن مختصات در سمت راست StatusBar
+        self.addPermanentWidget(
+            self.coordinates_label
+        )
 
-        self.addWidget(self.message_label)
+        # =================================================
+        # ظاهر StatusBar
+        # =================================================
+
+        self.setStyleSheet(
+            """
+            QStatusBar {
+                background-color: #303030;
+                color: white;
+                border-top: 1px solid #555555;
+            }
+
+            QStatusBar::item {
+                border: none;
+            }
+            """
+        )
+
+    # =====================================================
+    # مختصات
+    # =====================================================
 
     def set_coordinates(self, x, y):
 
-        self.coord_label.setText(
-            f"X:{x:.3f}  Y:{y:.3f}"
+        self.coordinates_label.setText(
+            f"X: {x:.2f}    Y: {y:.2f}"
         )
 
-    def set_layer(self, layer):
+    # =====================================================
+    # نمایش مختصات
+    # =====================================================
 
-        self.layer_label.setText(
-            f"Layer:{layer}"
+    def show_coordinates(self, x, y):
+
+        self.set_coordinates(x, y)
+
+    # =====================================================
+    # Reset
+    # =====================================================
+
+    def reset_coordinates(self):
+
+        self.set_coordinates(
+            0.0,
+            0.0
         )
 
-    def set_snap(self, enabled):
+    # =====================================================
+    # پیام
+    # =====================================================
 
-        self.snap_label.setText(
-            "SNAP ON" if enabled else "SNAP OFF"
+    def set_message(self, message):
+
+        self.showMessage(
+            str(message)
         )
-
-    def show_message(self, text):
-
-        self.message_label.setText(text)

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 import math
@@ -24,17 +24,17 @@ class Vector2:
         return self.x * self.x + self.y * self.y
 
     def normalized(self) -> "Vector2":
-        l = self.length
-        if l == 0:
+        length = self.length
+        if length == 0:
             return Vector2()
-        return Vector2(self.x / l, self.y / l)
+        return Vector2(self.x / length, self.y / length)
 
     def normalize(self):
-        l = self.length
-        if l == 0:
+        length = self.length
+        if length == 0:
             return
-        self.x /= l
-        self.y /= l
+        self.x /= length
+        self.y /= length
 
     def dot(self, other: "Vector2") -> float:
         return self.x * other.x + self.y * other.y
@@ -46,15 +46,18 @@ class Vector2:
         return (self - other).length
 
     def angle_to(self, other: "Vector2") -> float:
-        d = self.dot(other)
-        l = self.length * other.length
-        if l == 0:
+        denominator = self.length * other.length
+        if denominator == 0:
             return 0.0
-        return math.acos(max(-1.0, min(1.0, d / l)))
+
+        value = self.dot(other) / denominator
+        value = max(-1.0, min(1.0, value))
+        return math.acos(value)
 
     def rotate(self, angle: float) -> "Vector2":
         c = math.cos(angle)
         s = math.sin(angle)
+
         return Vector2(
             self.x * c - self.y * s,
             self.x * s + self.y * c,
@@ -73,6 +76,8 @@ class Vector2:
         return Vector2(self.x * value, self.y * value)
 
     def __truediv__(self, value: float):
+        if value == 0:
+            raise ZeroDivisionError("Cannot divide Vector2 by zero")
         return Vector2(self.x / value, self.y / value)
 
     def __neg__(self):

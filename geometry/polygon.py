@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from geometry.entity import Entity
-from math.vector import Vector2
-from math.transform import Transform
+from cad_math.vector import Vector2
+from cad_math.transform import Transform
 
 
 class Polygon(Entity):

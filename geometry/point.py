@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from geometry.entity import Entity
 from cad_math.vector import Vector2

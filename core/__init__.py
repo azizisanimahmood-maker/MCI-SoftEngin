@@ -1,4 +1,4 @@
-from .application import Application
+﻿from .application import Application
 from .constants import *
 from .settings import Settings
 from .logger import Logger
