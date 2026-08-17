@@ -4,6 +4,7 @@ from .settings import Settings
 from .logger import Logger
 from .event_bus import EventBus
 from .shortcut_manager import ShortcutManager
+from .document import Document
 
 __all__ = [
     "Application",
@@ -11,4 +12,5 @@ __all__ = [
     "Logger",
     "EventBus",
     "ShortcutManager",
+    "Document",
 ]

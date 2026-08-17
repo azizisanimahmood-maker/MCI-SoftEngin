@@ -594,103 +594,83 @@ class DrawingCommands:
     # MODIFY HELPERS
     # =====================================================
 
+    def _point_xy(self, p):
+        if isinstance(p, QPointF):
+            return p.x(), p.y()
+        return float(p[0]), float(p[1])
+
     def _translate_entity(
         self,
         entity,
         dx,
         dy
     ):
+        typ = entity.get("type", "")
 
-        typ = entity.get(
-            "type",
-            ""
-        )
+        dx = float(dx)
+        dy = float(dy)
 
         if typ == "LINE":
+            p1 = entity.get("p1", entity.get("start"))
+            p2 = entity.get("p2", entity.get("end"))
 
-            p1 = entity.get(
-                "p1",
-                entity.get("start")
-            )
+            x1, y1 = self._point_xy(p1)
+            x2, y2 = self._point_xy(p2)
 
-            p2 = entity.get(
-                "p2",
-                entity.get("end")
-            )
-
-            entity["p1"] = (
-                p1[0] + dx,
-                p1[1] + dy
-            )
-
-            entity["p2"] = (
-                p2[0] + dx,
-                p2[1] + dy
-            )
+            entity["p1"] = (x1 + dx, y1 + dy)
+            entity["p2"] = (x2 + dx, y2 + dy)
 
             entity["start"] = entity["p1"]
             entity["end"] = entity["p2"]
 
         elif typ == "RECTANG":
+            p1 = entity.get("p1", entity.get("start"))
+            p2 = entity.get("p2", entity.get("end"))
 
-            p1 = entity.get(
-                "p1",
-                entity.get("start")
-            )
+            x1, y1 = self._point_xy(p1)
+            x2, y2 = self._point_xy(p2)
 
-            p2 = entity.get(
-                "p2",
-                entity.get("end")
-            )
-
-            entity["p1"] = (
-                p1[0] + dx,
-                p1[1] + dy
-            )
-
-            entity["p2"] = (
-                p2[0] + dx,
-                p2[1] + dy
-            )
+            entity["p1"] = (x1 + dx, y1 + dy)
+            entity["p2"] = (x2 + dx, y2 + dy)
 
             entity["start"] = entity["p1"]
             entity["end"] = entity["p2"]
 
-        elif typ in (
-            "CIRCLE",
-            "ELLIPSE",
-            "ARC"
-        ):
+        elif typ in ("CIRCLE", "ELLIPSE", "ARC"):
+            center = entity.get("center")
 
-            center = entity["center"]
+            if center is None:
+                return
+
+            x, y = self._point_xy(center)
 
             entity["center"] = (
-                center[0] + dx,
-                center[1] + dy
+                x + dx,
+                y + dy
             )
 
         elif typ == "POINT":
+            p = entity.get("point")
 
-            p = entity["point"]
+            if p is None:
+                return
+
+            x, y = self._point_xy(p)
 
             entity["point"] = (
-                p[0] + dx,
-                p[1] + dy
+                x + dx,
+                y + dy
             )
 
-        elif typ in (
-            "PLINE",
-            "POLYGON"
-        ):
+        elif typ in ("PLINE", "POLYGON"):
+            points = entity.get("points") or []
 
             entity["points"] = [
-
                 (
-                    x + dx,
-                    y + dy
+                    self._point_xy(p)[0] + dx,
+                    self._point_xy(p)[1] + dy
                 )
-
-                for x, y in entity["points"]
+                for p in points
             ]
 
     # =====================================================

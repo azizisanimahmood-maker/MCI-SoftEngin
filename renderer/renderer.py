@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF
 from PySide6.QtGui import QPen
 
 
@@ -8,7 +8,7 @@ class Renderer:
         pass
 
     # =====================================================
-    # WORLD → SCREEN
+    # WORLD ? SCREEN
     # =====================================================
 
     def world_to_screen(self, canvas, point):
