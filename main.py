@@ -4,6 +4,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from core.document import Document
 from ui.main_window import MainWindow
 from renderer.renderer import Renderer
 
@@ -12,7 +13,21 @@ def main():
 
     app = QApplication(sys.argv)
 
+    # =================================================
+    # DOCUMENT
+    # =================================================
+
+    document = Document()
+
+    # =================================================
+    # MAIN WINDOW
+    # =================================================
+
     window = MainWindow()
+
+    # =================================================
+    # RENDERER
+    # =================================================
 
     renderer = Renderer()
 
@@ -20,9 +35,21 @@ def main():
         renderer
     )
 
+    # =================================================
+    # SHARED ENTITY STORAGE
+    # =================================================
+    # Canvas and Document use the SAME entity list.
+
     window.set_entities(
-        []
+        document.entities
     )
+
+    # Keep a reference to the document on the window.
+    window.document = document
+
+    # =================================================
+    # SHOW
+    # =================================================
 
     window.show()
 
