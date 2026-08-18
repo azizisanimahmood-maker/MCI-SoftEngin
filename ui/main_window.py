@@ -1,126 +1,83 @@
-﻿import sys
-from PySide6.QtCore import Qt, QPointF
-from PySide6.QtGui import QAction, QPainter, QPen, QColor, QFont
+﻿from ui.panels.project_panel import ProjectPanel
+from ui.panels.properties_panel import PropertiesPanel
+from ui.panels.layers_panel import LayersPanel
+from ui.panels.command_panel import CommandPanel
+from ui.panels.view_panel import ViewPanel
+import sys
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QToolBar, QTabWidget, QDockWidget, QTreeWidget, QTreeWidgetItem,
-    QTableWidget, QTableWidgetItem, QLineEdit, QLabel, QFrame,
-    QPushButton, QSplitter, QSizePolicy
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QDockWidget,
+    QLineEdit,
+    QLabel,
+    QFrame,
 )
 
-
-class DrawingCanvas(QWidget):
-    """Simple CAD-style preview canvas. This is UI only; no CAD engine is changed."""
-
-    def __init__(self):
-        super().__init__()
-        self.setMinimumSize(500, 400)
-        self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.StrongFocus)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # Background
-        painter.fillRect(self.rect(), QColor("#07111B"))
-
-        # Grid
-        grid_pen = QPen(QColor("#142938"))
-        grid_pen.setWidth(1)
-        painter.setPen(grid_pen)
-
-        step = 25
-        for x in range(0, self.width(), step):
-            painter.drawLine(x, 0, x, self.height())
-        for y in range(0, self.height(), step):
-            painter.drawLine(0, y, self.width(), y)
-
-        # Major grid
-        major_pen = QPen(QColor("#203D4D"))
-        major_pen.setWidth(1)
-        painter.setPen(major_pen)
-        for x in range(0, self.width(), step * 5):
-            painter.drawLine(x, 0, x, self.height())
-        for y in range(0, self.height(), step * 5):
-            painter.drawLine(0, y, self.width(), y)
-
-        # Axes
-        painter.setPen(QPen(QColor("#2CC7FF"), 2))
-        painter.drawLine(40, self.height() - 45, 180, self.height() - 45)
-        painter.drawLine(40, self.height() - 45, 40, self.height() - 180)
-
-        painter.setPen(QPen(QColor("#FF5252"), 2))
-        painter.drawLine(40, self.height() - 45, 150, self.height() - 45)
-
-        painter.setPen(QPen(QColor("#55E889"), 2))
-        painter.drawLine(40, self.height() - 45, 40, self.height() - 155)
-
-        # Sample structural plan
-        pen = QPen(QColor("#8DD9FF"), 2)
-        painter.setPen(pen)
-
-        left, top = 170, 100
-        width, height = min(650, self.width() - 330), min(430, self.height() - 190)
-
-        # Outer frame
-        painter.drawRect(left, top, width, height)
-
-        # Structural grid / beams
-        xs = [left, left + width // 4, left + width // 2,
-              left + 3 * width // 4, left + width]
-        ys = [top, top + height // 3, top + 2 * height // 3, top + height]
-
-        beam_pen = QPen(QColor("#6EE7A8"), 3)
-        painter.setPen(beam_pen)
-
-        for x in xs:
-            painter.drawLine(x, top, x, top + height)
-        for y in ys:
-            painter.drawLine(left, y, left + width, y)
-
-        # Columns
-        painter.setPen(QPen(QColor("#FFD84D"), 2))
-        painter.setBrush(QColor("#FFD84D"))
-        for x in xs:
-            for y in ys:
-                painter.drawRect(x - 5, y - 5, 10, 10)
-
-        painter.setBrush(Qt.NoBrush)
-
-        # Labels
-        painter.setPen(QColor("#D9F2FF"))
-        painter.setFont(QFont("Segoe UI", 9))
-
-        for i, x in enumerate(xs):
-            painter.drawText(x - 5, top - 12, chr(65 + i))
-
-        for i, y in enumerate(ys):
-            painter.drawText(left - 25, y + 4, str(i + 1))
-
-        painter.setPen(QColor("#8AA6B7"))
-        painter.drawText(20, 25, "MCI SoftEngine  •  Drawing Canvas")
-        painter.drawText(self.width() - 150, self.height() - 20, "TOP VIEW")
-
-    def mouseMoveEvent(self, event):
-        self.parentWidget().window().status_coordinates.setText(
-            f"X: {event.position().x():7.2f}    Y: {event.position().y():7.2f}    Z: 0.00"
-        )
+from ui.canvas import Canvas
+from ui.ribbon import Ribbon
+from renderer.renderer import Renderer
 
 
 class MainWindow(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("MCI SoftEngine | Structural CAD")
+        self.setWindowTitle(
+            "MCI SoftEngine | Structural CAD"
+        )
+
         self.resize(1500, 900)
         self.setMinimumSize(1200, 750)
 
+        self.entities = []
+
+        self._build_style()
         self.build_menu()
         self.build_ribbon()
         self.build_main_area()
         self.build_command_line()
         self.build_status_bar()
+
+        # =================================================
+        # CONNECT CANVAS
+        # =================================================
+
+        self.canvas.set_renderer(
+            Renderer()
+        )
+
+        self.canvas.set_entities(
+            self.entities
+        )
+
+        self.canvas.mouse_world_position.connect(
+            self.update_coordinates
+        )
+
+        self.canvas.commandFinished.connect(
+            self.command_finished
+        )
+
+        # =================================================
+        # CONNECT RIBBON
+        # =================================================
+
+        self.ribbon.commandRequested.connect(
+            self.execute_ribbon_command
+        )
+
+    # =====================================================
+    # STYLE
+    # =====================================================
+
+    def _build_style(self):
 
         self.setStyleSheet("""
             QMainWindow, QWidget {
@@ -138,7 +95,6 @@ class MainWindow(QMainWindow):
 
             QMenuBar::item {
                 padding: 7px 12px;
-                background: transparent;
             }
 
             QMenuBar::item:selected {
@@ -158,52 +114,6 @@ class MainWindow(QMainWindow):
                 background: #24516A;
             }
 
-            QToolBar {
-                background: #111E29;
-                border: none;
-                border-bottom: 1px solid #293D4B;
-                spacing: 3px;
-                padding: 4px;
-            }
-
-            QToolButton {
-                color: #DCEAF2;
-                background: transparent;
-                border: 1px solid transparent;
-                padding: 7px 10px;
-            }
-
-            QToolButton:hover {
-                background: #1E3A4D;
-                border: 1px solid #315E78;
-            }
-
-            QToolButton:checked {
-                background: #245777;
-                border: 1px solid #4A9AC2;
-            }
-
-            QTabWidget::pane {
-                border: 1px solid #263A49;
-                background: #0D1822;
-            }
-
-            QTabBar::tab {
-                background: #111E29;
-                padding: 8px 18px;
-                border-right: 1px solid #263A49;
-            }
-
-            QTabBar::tab:selected {
-                background: #1B3446;
-                color: #FFFFFF;
-            }
-
-            QDockWidget {
-                titlebar-close-icon: none;
-                titlebar-normal-icon: none;
-            }
-
             QDockWidget::title {
                 background: #111E29;
                 color: #EAF7FF;
@@ -212,7 +122,7 @@ class MainWindow(QMainWindow):
                 font-weight: bold;
             }
 
-            QTreeWidget, QTableWidget, QLineEdit {
+            QLineEdit {
                 background: #0D1822;
                 border: 1px solid #263A49;
                 color: #DCEAF2;
@@ -237,270 +147,690 @@ class MainWindow(QMainWindow):
                 padding: 5px;
             }
 
-            QPushButton {
-                background: #183244;
-                border: 1px solid #31566B;
-                padding: 6px 12px;
+            QLabel {
+                color: #BFD4DF;
             }
 
-            QPushButton:hover {
-                background: #24516A;
+            QLineEdit {
+                padding: 6px;
             }
         """)
 
+    # =====================================================
+    # MENU
+    # =====================================================
+
     def build_menu(self):
+
         menu = self.menuBar()
 
         menus = {
-            "File": ["New Project", "Open", "Save", "Export", "Exit"],
-            "Edit": ["Undo", "Redo", "Cut", "Copy", "Paste"],
-            "View": ["Top", "Front", "3D", "Zoom", "Pan", "Fit"],
-            "Draw": ["Line", "Polyline", "Rectangle", "Circle", "Arc"],
-            "Modify": ["Move", "Copy", "Rotate", "Mirror", "Trim", "Offset"],
-            "Annotate": ["Text", "Dimension", "Leader", "Table"],
-            "Architecture": ["Wall", "Door", "Window", "Room", "Stair"],
-            "Structure": ["Column", "Beam", "Brace", "Shear Wall", "Slab", "Foundation"],
-            "Analysis": ["Loads", "Supports", "Combinations", "Analysis", "Results"],
-            "Modeling": ["Levels", "Grids", "Objects"],
-            "Layers": ["Layer Manager", "Layer Properties"],
-            "Tools": ["Options", "Units", "Customize"],
-            "Settings": ["Appearance", "Workspace"],
-            "Window": ["Project", "Properties", "Layers", "Command Line"],
-            "Help": ["Documentation", "About MCI SoftEngine"],
+            "File": [
+                "New Project",
+                "Open",
+                "Save",
+                "Export",
+                "Exit",
+            ],
+
+            "Edit": [
+                "Undo",
+                "Redo",
+                "Cut",
+                "Copy",
+                "Paste",
+            ],
+
+            "View": [
+                "Top",
+                "Front",
+                "3D",
+                "Zoom",
+                "Pan",
+                "Fit",
+            ],
+
+            "Draw": [
+                "Line",
+                "Polyline",
+                "Rectangle",
+                "Circle",
+                "Arc",
+                "Ellipse",
+                "Polygon",
+                "Point",
+            ],
+
+            "Modify": [
+                "Move",
+                "Copy",
+                "Rotate",
+                "Mirror",
+                "Trim",
+                "Extend",
+                "Offset",
+                "Erase",
+            ],
+
+            "Annotate": [
+                "Text",
+                "Dimension",
+                "Leader",
+                "Table",
+            ],
+
+            "Architecture": [
+                "Wall",
+                "Door",
+                "Window",
+                "Room",
+                "Stair",
+            ],
+
+            "Structure": [
+                "Column",
+                "Beam",
+                "Brace",
+                "Shear Wall",
+                "Slab",
+                "Foundation",
+            ],
+
+            "Analysis": [
+                "Loads",
+                "Supports",
+                "Combinations",
+                "Analysis",
+                "Results",
+            ],
+
+            "Tools": [
+                "Options",
+                "Units",
+                "Customize",
+            ],
+
+            "Help": [
+                "Documentation",
+                "About MCI SoftEngine",
+            ],
         }
 
         for name, actions in menus.items():
-            m = menu.addMenu(name)
+
+            menu_item = menu.addMenu(name)
+
             for text in actions:
-                a = QAction(text, self)
-                m.addAction(a)
+
+                action = QAction(
+                    text,
+                    self
+                )
+
+                menu_item.addAction(
+                    action
+                )
+
+    # =====================================================
+    # RIBBON
+    # =====================================================
 
     def build_ribbon(self):
-        self.ribbon_tabs = QTabWidget()
-        self.ribbon_tabs.setFixedHeight(118)
 
-        tabs = {
-            "HOME": ["Select", "Line", "Polyline", "Rectangle", "Circle",
-                     "Move", "Copy", "Rotate", "Mirror", "Trim", "Extend",
-                     "Offset", "Erase"],
-            "DRAW": ["Line", "Polyline", "Circle", "Arc", "Rectangle",
-                     "Polygon", "Spline", "Hatch", "Point"],
-            "MODIFY": ["Move", "Copy", "Rotate", "Mirror", "Scale",
-                       "Stretch", "Trim", "Extend", "Fillet", "Chamfer",
-                       "Offset", "Array"],
-            "ANNOTATE": ["Text", "MText", "Dimension", "Leader",
-                         "Multileader", "Table", "Mark", "Grid"],
-            "ARCHITECTURE": ["Wall", "Door", "Window", "Room", "Stair",
-                             "Column", "Slab", "Roof"],
-            "STRUCTURE": ["Column", "Beam", "Brace", "Shear Wall",
-                          "Slab", "Foundation", "Footing", "Grid", "Axis"],
-            "ANALYSIS": ["Load", "Combination", "Supports", "Meshing",
-                         "Analysis", "Results", "Diagrams", "Design Check"],
-            "VIEW": ["Top", "Bottom", "Front", "Back", "Left", "Right",
-                     "3D", "Isometric", "Zoom", "Pan", "Fit", "Grid", "Snap"]
-        }
+        self.ribbon = Ribbon(self)
 
-        for tab_name, tools in tabs.items():
-            bar = QToolBar()
-            bar.setMovable(False)
-            bar.setIconSize(bar.iconSize())
+        self.setMenuWidget(
+            self.ribbon
+        )
 
-            for tool in tools:
-                action = QAction(tool, self)
-                action.setCheckable(tool in ("Select", "Grid", "Snap"))
-                bar.addAction(action)
-
-            self.ribbon_tabs.addTab(bar, tab_name)
-
-        self.addToolBar(Qt.TopToolBarArea, self.ribbon_tabs.findChildren(QToolBar)[0])
-        # Remove the automatically added first toolbar; ribbon tabs remain as a central widget.
-        self.removeToolBar(self.ribbon_tabs.findChildren(QToolBar)[0])
-        self.setMenuWidget(self.ribbon_tabs)
+    # =====================================================
+    # MAIN AREA
+    # =====================================================
 
     def build_main_area(self):
-        self.canvas = DrawingCanvas()
 
-        self.project_tree = QTreeWidget()
-        self.project_tree.setHeaderLabel("PROJECT BROWSER")
-        self.populate_project_tree()
+        # =================================================
+        # REAL CAD CANVAS
+        # =================================================
 
-        project_dock = QDockWidget("PROJECT", self)
-        project_dock.setWidget(self.project_tree)
-        project_dock.setMinimumWidth(245)
-        project_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, project_dock)
+        self.canvas = Canvas()
 
-        self.properties = QTableWidget(8, 2)
-        self.properties.setHorizontalHeaderLabels(["Property", "Value"])
-        self.properties.horizontalHeader().setStretchLastSection(True)
-
-        rows = [
-            ("Name", "B-101"),
-            ("Section", "40 × 60 cm"),
-            ("Material", "Concrete"),
-            ("Level", "Level 01"),
-            ("Length", "6.50 m"),
-            ("Rotation", "0°"),
-            ("Layer", "STRUCTURE"),
-            ("Status", "Defined"),
-        ]
-
-        for r, (a, b) in enumerate(rows):
-            self.properties.setItem(r, 0, QTableWidgetItem(a))
-            self.properties.setItem(r, 1, QTableWidgetItem(b))
-
-        layers = QTableWidget(11, 5)
-        layers.setHorizontalHeaderLabels(
-            ["Layer", "Visible", "Lock", "Type", "Weight"]
+        self.canvas.setFocusPolicy(
+            Qt.FocusPolicy.StrongFocus
         )
-        layer_names = [
-            "STRUCTURE", "ARCHITECTURE", "WALL", "COLUMN", "BEAM",
-            "SLAB", "FOUNDATION", "DIMENSION", "TEXT", "GRID", "AXIS"
-        ]
 
-        for r, name in enumerate(layer_names):
-            layers.setItem(r, 0, QTableWidgetItem(name))
-            layers.setItem(r, 1, QTableWidgetItem("●"))
-            layers.setItem(r, 2, QTableWidgetItem("□"))
-            layers.setItem(r, 3, QTableWidgetItem("Continuous"))
-            layers.setItem(r, 4, QTableWidgetItem("0.30 mm"))
+        # =================================================
+        # MODULAR UI PANELS
+        # =================================================
 
-        right_container = QWidget()
-        right_layout = QVBoxLayout(right_container)
-        right_layout.setContentsMargins(5, 5, 5, 5)
-        right_layout.addWidget(QLabel("PROPERTIES"))
-        right_layout.addWidget(self.properties)
-        right_layout.addWidget(QLabel("LAYERS"))
-        right_layout.addWidget(layers)
+        self.project_panel = ProjectPanel()
 
-        right_dock = QDockWidget("PROPERTIES / LAYERS", self)
-        right_dock.setWidget(right_container)
-        right_dock.setMinimumWidth(310)
-        right_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.RightDockWidgetArea, right_dock)
+        self.properties_panel = PropertiesPanel()
+
+        self.layers_panel = LayersPanel()
+
+        self.view_panel = ViewPanel()
+
+        # =================================================
+        # LEFT PROJECT PANEL
+        # =================================================
+
+        project_dock = QDockWidget(
+            "PROJECT",
+            self
+        )
+
+        project_dock.setObjectName(
+            "ProjectPanelDock"
+        )
+
+        project_dock.setWidget(
+            self.project_panel
+        )
+
+        project_dock.setMinimumWidth(
+            245
+        )
+
+        self.addDockWidget(
+            Qt.DockWidgetArea.LeftDockWidgetArea,
+            project_dock
+        )
+
+        self.project_dock = project_dock
+
+        # =================================================
+        # RIGHT PROPERTIES PANEL
+        # =================================================
+
+        properties_dock = QDockWidget(
+            "PROPERTIES",
+            self
+        )
+
+        properties_dock.setObjectName(
+            "PropertiesPanelDock"
+        )
+
+        properties_dock.setWidget(
+            self.properties_panel
+        )
+
+        properties_dock.setMinimumWidth(
+            300
+        )
+
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            properties_dock
+        )
+
+        self.properties_dock = properties_dock
+
+        # =================================================
+        # RIGHT LAYERS PANEL
+        # =================================================
+
+        layers_dock = QDockWidget(
+            "LAYERS",
+            self
+        )
+
+        layers_dock.setObjectName(
+            "LayersPanelDock"
+        )
+
+        layers_dock.setWidget(
+            self.layers_panel
+        )
+
+        layers_dock.setMinimumWidth(
+            300
+        )
+
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            layers_dock
+        )
+
+        self.layers_dock = layers_dock
+
+        # =================================================
+        # RIGHT VIEW PANEL
+        # =================================================
+
+        view_dock = QDockWidget(
+            "VIEW",
+            self
+        )
+
+        view_dock.setObjectName(
+            "ViewPanelDock"
+        )
+
+        view_dock.setWidget(
+            self.view_panel
+        )
+
+        view_dock.setMinimumWidth(
+            300
+        )
+
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            view_dock
+        )
+
+        self.view_dock = view_dock
+
+        # =================================================
+        # CENTRAL CAD AREA
+        # =================================================
 
         central = QWidget()
-        central_layout = QVBoxLayout(central)
-        central_layout.setContentsMargins(3, 3, 3, 3)
-        central_layout.setSpacing(3)
 
-        tabs = QTabWidget()
-        tabs.addTab(self.canvas, "Floor Plan 01")
-        tabs.addTab(QWidget(), "3D View")
-        tabs.addTab(QWidget(), "Analysis")
-        central_layout.addWidget(tabs)
+        central_layout = QVBoxLayout(
+            central
+        )
 
-        self.setCentralWidget(central)
+        central_layout.setContentsMargins(
+            3,
+            3,
+            3,
+            3
+        )
+
+        central_layout.setSpacing(
+            3
+        )
+
+        central_layout.addWidget(
+            self.canvas
+        )
+
+        self.setCentralWidget(
+            central
+        )
+
+        # =================================================
+        # DOCK ARRANGEMENT
+        # =================================================
+
+        self.tabifyDockWidget(
+            properties_dock,
+            layers_dock
+        )
+
+        self.tabifyDockWidget(
+            layers_dock,
+            view_dock
+        )
+
+        properties_dock.raise_()
+    # =====================================================
+    # PROJECT TREE
+    # =====================================================
 
     def populate_project_tree(self):
-        root = QTreeWidgetItem(["Project"])
-        self.project_tree.addTopLevelItem(root)
 
-        levels = QTreeWidgetItem(["Levels"])
-        root.addChild(levels)
-        for level in ["Level 03", "Level 02", "Level 01", "Ground", "Base"]:
-            levels.addChild(QTreeWidgetItem([level]))
+        root = QTreeWidgetItem(
+            ["Project"]
+        )
 
-        grids = QTreeWidgetItem(["Structural Grids"])
-        root.addChild(grids)
+        self.project_tree.addTopLevelItem(
+            root
+        )
 
-        views = QTreeWidgetItem(["Views"])
-        root.addChild(views)
-        for view in ["Floor Plans", "3D Views", "Elevations", "Sections"]:
-            views.addChild(QTreeWidgetItem([view]))
+        levels = QTreeWidgetItem(
+            ["Levels"]
+        )
 
-        objects = QTreeWidgetItem(["Objects"])
-        root.addChild(objects)
-        for obj in ["Architecture", "Structure", "Columns", "Beams",
-                    "Slabs", "Foundations", "Walls", "Braces"]:
-            objects.addChild(QTreeWidgetItem([obj]))
+        root.addChild(
+            levels
+        )
+
+        for level in [
+            "Level 03",
+            "Level 02",
+            "Level 01",
+            "Ground",
+            "Base",
+        ]:
+
+            levels.addChild(
+                QTreeWidgetItem(
+                    [level]
+                )
+            )
+
+        grids = QTreeWidgetItem(
+            ["Structural Grids"]
+        )
+
+        root.addChild(
+            grids
+        )
+
+        views = QTreeWidgetItem(
+            ["Views"]
+        )
+
+        root.addChild(
+            views
+        )
+
+        for view in [
+            "Floor Plans",
+            "3D Views",
+            "Elevations",
+            "Sections",
+        ]:
+
+            views.addChild(
+                QTreeWidgetItem(
+                    [view]
+                )
+            )
+
+        objects = QTreeWidgetItem(
+            ["Objects"]
+        )
+
+        root.addChild(
+            objects
+        )
+
+        for obj in [
+            "Architecture",
+            "Structure",
+            "Columns",
+            "Beams",
+            "Slabs",
+            "Foundations",
+            "Walls",
+            "Braces",
+        ]:
+
+            objects.addChild(
+                QTreeWidgetItem(
+                    [obj]
+                )
+            )
 
         root.setExpanded(True)
         levels.setExpanded(True)
         views.setExpanded(True)
         objects.setExpanded(True)
 
+    # =====================================================
+    # COMMAND LINE
+    # =====================================================
+
     def build_command_line(self):
-        command_frame = QFrame()
-        command_frame.setFixedHeight(115)
-        command_layout = QVBoxLayout(command_frame)
-        command_layout.setContentsMargins(8, 5, 8, 5)
 
-        header = QHBoxLayout()
-        title = QLabel("COMMAND LINE")
-        title.setStyleSheet("font-weight: bold; color: #8DD9FF;")
-        header.addWidget(title)
-        header.addStretch()
-        header.addWidget(QLabel("History"))
-        header.addWidget(QLabel("Suggestions"))
-        command_layout.addLayout(header)
+        frame = QFrame()
 
-        history = QLabel(
-            "Command: LINE\n"
-            "Specify first point:\n"
-            "Specify next point:\n"
-            "Specify next point or [Undo]:"
+        frame.setFixedHeight(
+            105
         )
-        history.setStyleSheet("color: #B7CBD6;")
-        command_layout.addWidget(history)
+
+        layout = QVBoxLayout(
+            frame
+        )
+
+        layout.setContentsMargins(
+            8,
+            5,
+            8,
+            5
+        )
+
+        self.command_history = QLabel(
+            "Command: Ready"
+        )
+
+        self.command_history.setStyleSheet(
+            "color: #8DD9FF;"
+        )
+
+        layout.addWidget(
+            self.command_history
+        )
 
         self.command_input = QLineEdit()
-        self.command_input.setPlaceholderText("Type a command...")
-        command_layout.addWidget(self.command_input)
 
-        self.status_command = command_frame
-        self.status_command.setParent(self.centralWidget())
-        self.centralWidget().layout().addWidget(command_frame)
+        self.command_input.setPlaceholderText(
+            "Type a command..."
+        )
 
-        self.command_input.returnPressed.connect(self.execute_command)
+        layout.addWidget(
+            self.command_input
+        )
+
+        self.centralWidget().layout().addWidget(
+            frame
+        )
+
+        self.command_input.returnPressed.connect(
+            self.execute_command
+        )
+
+    # =====================================================
+    # COMMAND EXECUTION
+    # =====================================================
 
     def execute_command(self):
-        text = self.command_input.text().strip()
-        if text:
-            self.status_command.findChildren(QLabel)[1].setText(
-                f"Command: {text.upper()}"
-            )
+
+        text = (
+            self.command_input
+            .text()
+            .strip()
+        )
+
+        if not text:
+            return
+
+        command = text.upper()
+
+        self.command_history.setText(
+            f"Command: {command}"
+        )
+
         self.command_input.clear()
 
+        self.execute_ribbon_command(
+            command
+        )
+
+    def execute_ribbon_command(
+        self,
+        command
+    ):
+
+        command = str(
+            command
+        ).strip().upper()
+
+        # Commands that Canvas currently supports
+        canvas_commands = {
+            "LINE",
+            "PLINE",
+            "POLYLINE",
+            "RECTANG",
+            "RECTANGLE",
+            "CIRCLE",
+            "ARC",
+            "POINT",
+            "POLYGON",
+            "ELLIPSE",
+            "MOVE",
+        }
+
+        if command in canvas_commands:
+
+            self.canvas.start_command(
+                command
+            )
+
+            self.command_history.setText(
+                f"Command: {command}  |  "
+                f"Specify first point:"
+            )
+
+            self.canvas.setFocus()
+
+            return
+
+        # -------------------------------------------------
+        # VIEW
+        # -------------------------------------------------
+
+        if command == "ZOOM EXTENTS":
+
+            self.canvas.zoom = 1.0
+            self.canvas.pan_x = 0.0
+            self.canvas.pan_y = 0.0
+            self.canvas.update()
+
+            return
+
+        if command == "ZOOM 1.2":
+
+            self.canvas.zoom = min(
+                self.canvas.zoom * 1.2,
+                100.0
+            )
+
+            self.canvas.update()
+
+            return
+
+        if command == "ZOOM 0.833333":
+
+            self.canvas.zoom = max(
+                self.canvas.zoom / 1.2,
+                0.05
+            )
+
+            self.canvas.update()
+
+            return
+
+        if command == "PAN":
+
+            self.command_history.setText(
+                "Command: PAN | "
+                "Use middle mouse button"
+            )
+
+            return
+
+        self.command_history.setText(
+            f"Command: {command} | "
+            "Not implemented yet"
+        )
+
+    # =====================================================
+    # COORDINATES
+    # =====================================================
+
+    def update_coordinates(
+        self,
+        x,
+        y
+    ):
+
+        self.status_coordinates.setText(
+            f"X: {x:8.2f}    "
+            f"Y: {y:8.2f}    "
+            f"Z: 0.00"
+        )
+
+    # =====================================================
+    # COMMAND FINISHED
+    # =====================================================
+
+    def command_finished(
+        self,
+        command
+    ):
+
+        self.command_history.setText(
+            f"Command: {command}"
+        )
+
+    # =====================================================
+    # STATUS BAR
+    # =====================================================
+
     def build_status_bar(self):
-        self.status_coordinates = QLabel("X: 0.00    Y: 0.00    Z: 0.00")
-        self.status_coordinates.setMinimumWidth(220)
 
-        self.statusBar().addWidget(self.status_coordinates)
+        self.status_coordinates = QLabel(
+            "X: 0.00    Y: 0.00    Z: 0.00"
+        )
+
+        self.status_coordinates.setMinimumWidth(
+            250
+        )
+
+        self.statusBar().addWidget(
+            self.status_coordinates
+        )
+
         for text in [
-            "GRID  ON", "SNAP  ON", "ORTHO  OFF",
-            "POLAR  OFF", "OSNAP  ON"
+            "GRID ON",
+            "SNAP ON",
+            "ORTHO OFF",
+            "POLAR OFF",
+            "OSNAP ON",
         ]:
-            label = QLabel(text)
-            label.setFrameStyle(QFrame.Panel | QFrame.Sunken)
-            label.setStyleSheet("padding: 3px 10px;")
-            self.statusBar().addWidget(label)
 
-        self.statusBar().addPermanentWidget(QLabel("Layer: STRUCTURE"))
-        self.statusBar().addPermanentWidget(QLabel("Scale: 1:100"))
-        self.statusBar().addPermanentWidget(QLabel("Units: mm"))
+            label = QLabel(text)
+
+            label.setFrameStyle(
+                QFrame.Shape.Panel |
+                QFrame.Shadow.Sunken
+            )
+
+            label.setStyleSheet(
+                "padding: 3px 10px;"
+            )
+
+            self.statusBar().addWidget(
+                label
+            )
+
+        self.statusBar().addPermanentWidget(
+            QLabel("Layer: STRUCTURE")
+        )
+
+        self.statusBar().addPermanentWidget(
+            QLabel("Scale: 1:100")
+        )
+
+        self.statusBar().addPermanentWidget(
+            QLabel("Units: mm")
+        )
 
 
 def main():
+
     app = QApplication(sys.argv)
-    app.setApplicationName("MCI SoftEngine")
+
+    app.setApplicationName(
+        "MCI SoftEngine"
+    )
 
     window = MainWindow()
+
     window.show()
 
-    sys.exit(app.exec())
+    sys.exit(
+        app.exec()
+    )
 
 
 if __name__ == "__main__":
     main()
-# --- MCI integration methods ---
-def _mci_set_renderer(self, renderer):
-    self.renderer = renderer
 
-def _mci_set_entities(self, entities):
-    self.entities = entities
-    if hasattr(self, "canvas"):
-        self.canvas.entities = entities
 
-MainWindow.set_renderer = _mci_set_renderer
-MainWindow.set_entities = _mci_set_entities
